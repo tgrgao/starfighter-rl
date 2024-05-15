@@ -2,16 +2,11 @@ import pygame
 
 from src.fighter import Fighter
 from src.missile import Missile
+import src.consts as CONSTANTS
 
 class StarfighterGame():
 
     def __init__(self, num_red, num_blue):
-        pygame.init()
-
-        WIDTH, HEIGHT = 1000, 1000
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption("Starfighter")
-
         self.agents = {}
 
         self.ship_sprites = pygame.sprite.Group()
@@ -36,10 +31,6 @@ class StarfighterGame():
             self.ship_sprites.add(self.agents[agent_name])
             self.blue_sprites.add(self.agents[agent_name])
             blue_starting_pos.x -= 50
-
-        self.ship_sprites.draw(self.screen)
-
-        pygame.display.update()
 
     def tick(self, actions):
         for agent_name, action_list in actions.items():
@@ -82,9 +73,3 @@ class StarfighterGame():
                     if (sprite.alive):
                         sprite.alive = False
                         sprite.kill()
-
-        self.screen.fill((0,0,0))
-        self.ship_sprites.draw(self.screen)
-        self.projectile_sprites.draw(self.screen)
-
-        pygame.display.update()

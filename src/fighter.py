@@ -68,7 +68,7 @@ class Fighter(pygame.sprite.Sprite):
             else:
                 self.missile_launched = False
         if (FighterActions.RELOAD in actions):
-            if (self.curr_reload_time == 0):
+            if (self.curr_reload_time == 0 and self.curr_weapon_timeout == 9):
                 print("RELOAD")
                 self.curr_reload_time = self.reload_time + 1
 
