@@ -5,6 +5,7 @@ import numpy as np
 
 from src.starfighter_game import StarfighterGame
 import src.consts as CONSTANTS
+from src.consts import FighterActions
 
 class StarfighterEnv(ParallelEnv):
     metadata = {
@@ -44,7 +45,7 @@ class StarfighterEnv(ParallelEnv):
         )
 
         self.action_spaces = dict(
-            zip(self.agents, [[Discrete(2), Discrete(3), Discrete(3)] for _ in enumerate(self.agents)]) # first is for forward, second is for rotating, third is for firing/reloading
+            zip(self.agents, [Box(low=np.array([0, -1, -1]), high=np.array([1, 1, 1]), dtype=np.int32) for _ in enumerate(self.agents)]) # first is for forward, second is for rotating, third is for firing/reloading
         )
 
         if self.render_mode == "human":
@@ -62,6 +63,20 @@ class StarfighterEnv(ParallelEnv):
         self.reinit()
 
     def step(self, actions):
+        for agent_name, action_vector in actions:
+            action_list = []
+            if action_vector[0] == 1:
+                action_list.append(FighterActions.FORWARD)
+            if action_vector[1] == -1:
+                action_list.append(FighterActions.TURN_CCW)
+            elif action_vector[1] == 1:
+                action_list.append(FighterActions.TURN_CW)
+            if action_vector[2] == -1:
+                action_list.append(FighterActions.FIRE)
+            if action_vector[2] == 1:
+                action_list.append(FighterActions.RELOAD)
+            actions[agent_name] = action_list
+
         self.game.tick(actions)
 
         if self.render_mode is not None:
@@ -76,8 +91,8 @@ class StarfighterEnv(ParallelEnv):
         self.screen.fill((0,0,0))
         self.game.ship_sprites.draw(self.screen)
         self.game.projectile_sprites.draw(self.screen)
-
         pygame.display.update()
+        
         self.clock.tick(self.metadata["render_fps"])
 
     def observation_space(self, agent):

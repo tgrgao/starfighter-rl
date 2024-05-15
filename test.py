@@ -2,8 +2,12 @@ import pygame
 
 from src.starfighter_game import StarfighterGame
 from src.consts import FighterActions
+import src.consts as CONSTANTS
 
 game = StarfighterGame(10, 10)
+pygame.init()
+screen = pygame.display.set_mode((CONSTANTS.MAP_WIDTH, CONSTANTS.MAP_HEIGHT))
+pygame.display.set_caption("Starfighter")
 
 action_mapping = {
     pygame.K_w : FighterActions.FORWARD,
@@ -28,5 +32,11 @@ while(True):
                     actions.remove(action_mapping[event.key])
     
     game.tick({"Red_1": actions})
+
+    screen.fill([0,0,0])
+    game.ship_sprites.draw(screen)
+    game.projectile_sprites.draw(screen)
+    pygame.display.update()
+    
     clock.tick(30)
         
