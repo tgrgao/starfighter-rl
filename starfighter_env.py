@@ -1,5 +1,5 @@
 from pettingzoo import ParallelEnv
-from gymnasium.spaces import Box, Discrete
+from gymnasium.spaces import Box, MultiDiscrete
 import pygame
 import numpy as np
 
@@ -42,7 +42,7 @@ class StarfighterEnv(ParallelEnv):
         for i in range(self.num_blue):
             self.possible_agents.append(f"Blue_{i}")
 
-        self.num_agents = self.num_red + self.num_blue
+        self.agents = self.possible_agents[:]
 
         self.max_ships = self.num_agents
         self.max_projectiles = self.num_agents * 2 # can be this because based on missile speed and range in relation to weapon timeout, all set in consts.py, each fighter can have only <2> missile(s) on the map at a time
@@ -58,7 +58,7 @@ class StarfighterEnv(ParallelEnv):
         )
 
         self.action_spaces = dict(
-            zip(self.possible_agents, [Box(low=np.array([0, -1, -1]), high=np.array([1, 1, 1]), dtype=np.int32) for _ in enumerate(self.possible_agents)]) # first is for forward, second is for rotating, third is for firing/reloading
+            zip(self.possible_agents, [MultiDiscrete(np.array([2, 3, 3])) for _ in enumerate(self.possible_agents)]) # first is for forward, second is for rotating, third is for firing/reloading
         )
 
         if self.render_mode == "human":
@@ -156,3 +156,12 @@ class StarfighterEnv(ParallelEnv):
 
     def action_space(self, agent):
         return self.action_spaces[agent]
+    
+    def get_vector_state(self):
+        state = []
+        typemask = np.array([])
+        for agent_name in self.possible_agents:
+            if not self.terminations[agent_name]:
+                agent = self.game.ship_sprites[agent_name]
+                
+

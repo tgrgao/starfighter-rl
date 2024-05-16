@@ -1,8 +1,8 @@
 import pettingzoo
+import pettingzoo.test
 
 from starfighter_env import StarfighterEnv
 
-env = StarfighterEnv()
+env = StarfighterEnv(render_mode=None)
 
-while(True):
-    pass
+pettingzoo.test.parallel_api_test(env, num_cycles=100)
