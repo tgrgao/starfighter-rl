@@ -58,7 +58,7 @@ class StarfighterGame():
             for sprite in v:
                 if k != sprite:
                     if (sprite.alive):
-                        self.events["ship_collisions"].append((k.agent_name, v.agent_name))
+                        self.events["ship_collisions"].append((k.agent_name, sprite.agent_name))
                         sprite.alive = False
                         sprite.kill()
 
@@ -75,16 +75,16 @@ class StarfighterGame():
 
         # Check for ship-projectile collisions
         collisions = pygame.sprite.groupcollide(self.projectile_sprites, self.ship_sprites, False, False)
-        for k,v in collisions.items():
-            if (len(v) > 0 and k.alive):
-                k.alive = False
-                k.kill()
-            for sprite in v:
-                if k != sprite:
-                    if (sprite.alive):
-                        self.events["kills"].append((k.owner, v.agent_name))
-                        sprite.alive = False
-                        sprite.kill()
+        for projectile_sprite, collision_list in collisions.items():
+            if (projectile_sprite.alive and len(collision_list) > 0):
+                projectile_sprite.alive = False
+                projectile_sprite.kill()
+            for ship_sprite in collision_list:
+                if projectile_sprite != ship_sprite:
+                    if (ship_sprite.alive):
+                        self.events["kills"].append((projectile_sprite.owner, ship_sprite.agent_name))
+                        ship_sprite.alive = False
+                        ship_sprite.kill()
 
         if (not self.red_sprites.has() and not self.blue_sprites.has()):
             self.events["victory"].append(-1)
