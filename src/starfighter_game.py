@@ -32,13 +32,23 @@ class StarfighterGame():
             self.blue_sprites.add(self.agents[agent_name])
             blue_starting_pos.x -= 50
 
+        self.events = {}
+
     def tick(self, actions):
+        self.events = {
+            "victory": [],
+            "kills": [],
+            "ship_collisions": [],
+            "out_of_bounds": [] 
+        }
+
         for agent_name, action_list in actions.items():
             agent_sprite = self.agents[agent_name]
             if not agent_sprite.alive:
                 continue
             agent_sprite.tick(action_list)
             if agent_sprite.out_of_bounds:
+                self.events["out_of_bounds"].append((agent_sprite.agent_name))
                 agent_sprite.alive = False
                 agent_sprite.kill()
 
@@ -48,6 +58,7 @@ class StarfighterGame():
             for sprite in v:
                 if k != sprite:
                     if (sprite.alive):
+                        self.events["ship_collisions"].append((k.agent_name, v.agent_name))
                         sprite.alive = False
                         sprite.kill()
 
@@ -63,7 +74,7 @@ class StarfighterGame():
                 projectile.kill()
 
         # Check for ship-projectile collisions
-        collisions = pygame.sprite.groupcollide(self.ship_sprites, self.projectile_sprites, False, False)
+        collisions = pygame.sprite.groupcollide(self.projectile_sprites, self.ship_sprites, False, False)
         for k,v in collisions.items():
             if (len(v) > 0 and k.alive):
                 k.alive = False
@@ -71,5 +82,15 @@ class StarfighterGame():
             for sprite in v:
                 if k != sprite:
                     if (sprite.alive):
+                        self.events["kills"].append((k.owner, v.agent_name))
                         sprite.alive = False
                         sprite.kill()
+
+        if (not self.red_sprites.has() and not self.blue_sprites.has()):
+            self.events["victory"].append(-1)
+
+        if (not self.blue_sprites.has()):
+            self.events["victory"].append(0)
+
+        if (not self.red_sprites.has()):
+            self.events["victory"].append(1)
