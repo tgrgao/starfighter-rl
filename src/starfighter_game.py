@@ -64,7 +64,7 @@ class StarfighterGame():
 
         for agent_sprite in self.agents.values():
             if agent_sprite.missile_launched:
-                agent_sprite.missile_launched = 0
+                agent_sprite.missile_launched = False
                 self.projectile_sprites.add(Missile(agent_name, agent_sprite.pos, agent_sprite.angle))
 
         for projectile in self.projectile_sprites:

@@ -48,7 +48,8 @@ class StarfighterEnv(ParallelEnv):
         self.max_projectiles = self.num_agents * 2 # can be this because based on missile speed and range in relation to weapon timeout, all set in consts.py, each fighter can have only <2> missile(s) on the map at a time
         self.max_objects = self.max_ships + self.max_projectiles
 
-        shape = ([self.max_objects + 1, 4 + 5]) # 4 for typemask, 5 for positions/directions
+        self.vector_width = 4 + 4 + 1 # 4 for typemask, 4 for positions/directions, 1 for distance to agent
+        shape = ([self.max_objects + 1, self.vector_width]) 
         obs_space = Box(low=-1.0, high=1.0, shape=shape, dtype=np.float64)
         self.observation_spaces = dict(
             zip(
@@ -100,43 +101,66 @@ class StarfighterEnv(ParallelEnv):
             self.rewards[agent] = 0
         for (killer, killed) in self.game.events["kills"]:
             if self.game.agents[killer].team != self.game.agents[killed].team:
-                self.score[killer] += REWARDS["killed_enemy"]
-                self.score[killed] += REWARDS["killed_by_enemy"]
+                self.rewards[killer] += REWARDS["killed_enemy"]
+                self.rewards[killed] += REWARDS["killed_by_enemy"]
             else:
-                self.score[killer] += REWARDS["killed_friendly"]
-                self.score[killed] += REWARDS["killed_by_friendly"]
+                self.rewards[killer] += REWARDS["killed_friendly"]
+                self.rewards[killed] += REWARDS["killed_by_friendly"]
             self.terminations[killed] = True
         for (collider_1, collider_2) in self.game.events["ship_collisions"]:
             if self.game.agents[collider_1].team != self.game.agents[collider_2].team:
-                self.score[collider_1] += REWARDS["collision_enemy"]
-                self.score[collider_2] += REWARDS["collision_enemy"]
+                self.rewards[collider_1] += REWARDS["collision_enemy"]
+                self.rewards[collider_2] += REWARDS["collision_enemy"]
             else:
-                self.score[collider_1] += REWARDS["collision_friendly"]
-                self.score[collider_2] += REWARDS["collision_friendly"]
+                self.rewards[collider_1] += REWARDS["collision_friendly"]
+                self.rewards[collider_2] += REWARDS["collision_friendly"]
             self.terminations[collider_1] = True
             self.terminations[collider_2] = True
         for (killed) in self.game.events["out_of_bounds"]:
-            self.score[killed] += REWARDS["out_of_bounds"]
+            self.rewards[killed] += REWARDS["out_of_bounds"]
             self.terminations[killed] = True
 
         if (len(self.game.events["victory"]) > 0):
             if (self.game.events["victory"][0] == -1):
                 for agent_name in self.game.ship_sprites:
-                    self.score[agent_name] += REWARDS["stalemate"]
+                    self.rewards[agent_name] += REWARDS["stalemate"]
             if (self.game.events["victory"][0] == 0):
                 for agent in self.game.red_sprites:
-                    self.score[agent.agent_name] += REWARDS["victory"]
+                    self.rewards[agent.agent_name] += REWARDS["victory"]
                 for agent in self.game.blue_sprites:
-                    self.score[agent.agent_name] += REWARDS["defeat"]
+                    self.rewards[agent.agent_name] += REWARDS["defeat"]
             if (self.game.events["victory"][0] == 1):
                 for agent in self.game.blue_sprites:
-                    self.score[agent.agent_name] += REWARDS["victory"]
+                    self.rewards[agent.agent_name] += REWARDS["victory"]
                 for agent in self.game.red_sprites:
-                    self.score[agent.agent_name] += REWARDS["defeat"]
+                    self.rewards[agent.agent_name] += REWARDS["defeat"]
             self.done = True
 
         if self.render_mode is not None:
             self.render()
+
+        self.observations = {}
+        vector_state = self.get_vector_state()
+        state = vector_state[:, -4:]
+        all_ids = vector_state[:, :-4]
+        all_pos = state[:, 0:2]
+        all_ang = state[:, 2:4]
+        for i in range(self.num_agents):
+            agent_state = vector_state[i].copy()
+            agent_state[0] = 1
+            agent_state[1] = 0
+            agent_state[2] = 0
+            agent_pos = np.expand_dims(agent_state[-4:-2], axis=0)
+            agent_state = np.append(agent_state, [0])
+
+            rel_pos = all_pos - agent_pos
+            norm_pos = np.linalg.norm(rel_pos, axis=1, keepdims=True) / np.sqrt(2)
+            all_state = np.concatenate([all_ids, rel_pos, all_ang, norm_pos], axis=-1)
+
+            agent_state = np.expand_dims(agent_state, axis=0)
+            self.observations[self.possible_agents[i]] = np.concatenate([agent_state, all_state], axis=0)
+
+        
 
     def render(self):
         if self.screen is None:
@@ -159,9 +183,26 @@ class StarfighterEnv(ParallelEnv):
     
     def get_vector_state(self):
         state = []
-        typemask = np.array([])
         for agent_name in self.possible_agents:
+            agent_vector = np.zeros(self.vector_width)
             if not self.terminations[agent_name]:
                 agent = self.game.ship_sprites[agent_name]
-                
+                if agent.team == 0:
+                    agent_vector[1] = 1
+                else:
+                    agent_vector[2] = 1
+                agent_vector[4] = agent.rect.x / CONSTANTS.MAP_WIDTH
+                agent_vector[5] = agent.rect.y / CONSTANTS.MAP_HEIGHT
+                agent_vector[6] = agent.direction[0]
+                agent_vector[7] = agent.direction[1]
+            state.append(agent_vector)
 
+        for projectile in self.game.projectile_sprites:
+            projectile_vector = np.zeros(self.vector_width)
+            projectile_vector[3] = 1
+            projectile_vector[4] = projectile.rect.x / CONSTANTS.MAP_WIDTH
+            projectile_vector[5] = projectile.rect.y / CONSTANTS.MAP_HEIGHT
+            projectile_vector[6] = projectile.direction[0]
+            projectile_vector[7] = projectile.direction[1]
+        
+        return np.stack(state, axis=0)
