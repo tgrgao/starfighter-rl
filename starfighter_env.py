@@ -80,8 +80,12 @@ class StarfighterEnv(ParallelEnv):
         if self.render_mode is not None:
             self.render()
 
+        self.get_observations()
+
+        return self.observations, self.infos
+
     def step(self, actions):
-        for agent_name, action_vector in actions:
+        for agent_name, action_vector in actions.items():
             action_list = []
             if action_vector[0] == 1:
                 action_list.append(FighterActions.FORWARD)
@@ -107,6 +111,7 @@ class StarfighterEnv(ParallelEnv):
                 self.rewards[killer] += REWARDS["killed_friendly"]
                 self.rewards[killed] += REWARDS["killed_by_friendly"]
             self.terminations[killed] = True
+            self.agents.remove(killed)
         for (collider_1, collider_2) in self.game.events["ship_collisions"]:
             if self.game.agents[collider_1].team != self.game.agents[collider_2].team:
                 self.rewards[collider_1] += REWARDS["collision_enemy"]
@@ -116,14 +121,17 @@ class StarfighterEnv(ParallelEnv):
                 self.rewards[collider_2] += REWARDS["collision_friendly"]
             self.terminations[collider_1] = True
             self.terminations[collider_2] = True
+            self.agents.remove(collider_1)
+            self.agents.remove(collider_2)
         for (killed) in self.game.events["out_of_bounds"]:
             self.rewards[killed] += REWARDS["out_of_bounds"]
             self.terminations[killed] = True
+            self.agents.remove(killed)
 
         if (len(self.game.events["victory"]) > 0):
             if (self.game.events["victory"][0] == -1):
-                for agent_name in self.game.ship_sprites:
-                    self.rewards[agent_name] += REWARDS["stalemate"]
+                for agent in self.game.ship_sprites:
+                    self.rewards[agent.agent_name] += REWARDS["stalemate"]
             if (self.game.events["victory"][0] == 0):
                 for agent in self.game.red_sprites:
                     self.rewards[agent.agent_name] += REWARDS["victory"]
@@ -139,6 +147,13 @@ class StarfighterEnv(ParallelEnv):
         if self.render_mode is not None:
             self.render()
 
+        self.get_observations()
+
+        print(self.observations.keys())
+
+        return self.observations, self.rewards, self.terminations, self.truncations, self.infos
+
+    def get_observations(self):
         self.observations = {}
         vector_state = self.get_vector_state()
         state = vector_state[:, -4:]
@@ -159,8 +174,6 @@ class StarfighterEnv(ParallelEnv):
 
             agent_state = np.expand_dims(agent_state, axis=0)
             self.observations[self.possible_agents[i]] = np.concatenate([agent_state, all_state], axis=0)
-
-        
 
     def render(self):
         if self.screen is None:
@@ -186,7 +199,7 @@ class StarfighterEnv(ParallelEnv):
         for agent_name in self.possible_agents:
             agent_vector = np.zeros(self.vector_width)
             if not self.terminations[agent_name]:
-                agent = self.game.ship_sprites[agent_name]
+                agent = self.game.agents[agent_name]
                 if agent.team == 0:
                     agent_vector[1] = 1
                 else:

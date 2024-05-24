@@ -56,6 +56,8 @@ class StarfighterGame():
         collisions = pygame.sprite.groupcollide(self.ship_sprites, self.ship_sprites, False, False)
         for k,v in collisions.items():
             for sprite in v:
+                k.alive = False
+                k.kill()
                 if k != sprite:
                     if (sprite.alive):
                         self.events["ship_collisions"].append((k.agent_name, sprite.agent_name))
