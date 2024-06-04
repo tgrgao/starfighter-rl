@@ -149,17 +149,18 @@ class StarfighterEnv(ParallelEnv):
 
         self.get_observations()
 
-        print(self.observations.keys())
-
         return self.observations, self.rewards, self.terminations, self.truncations, self.infos
 
     def get_observations(self):
         self.observations = {}
         vector_state = self.get_vector_state()
-        state = vector_state[:, -4:]
         all_ids = vector_state[:, :-4]
+        state = vector_state[:, -4:] 
         all_pos = state[:, 0:2]
         all_ang = state[:, 2:4]
+
+        is_dead = np.sum(np.abs(state), axis=1) == 0.0
+
         for i in range(self.num_agents):
             agent_state = vector_state[i].copy()
             agent_state[0] = 1
@@ -170,6 +171,13 @@ class StarfighterEnv(ParallelEnv):
 
             rel_pos = all_pos - agent_pos
             norm_pos = np.linalg.norm(rel_pos, axis=1, keepdims=True) / np.sqrt(2)
+
+            # kill dead things (or else rel_pos and norm_pos will be non-zero)
+            all_ids[is_dead] *= 0
+            all_ang[is_dead] *= 0
+            rel_pos[is_dead] *= 0
+            norm_pos[is_dead] *= 0
+
             all_state = np.concatenate([all_ids, rel_pos, all_ang, norm_pos], axis=-1)
 
             agent_state = np.expand_dims(agent_state, axis=0)
@@ -197,7 +205,7 @@ class StarfighterEnv(ParallelEnv):
     def get_vector_state(self):
         state = []
         for agent_name in self.possible_agents:
-            agent_vector = np.zeros(self.vector_width)
+            agent_vector = np.zeros(self.vector_width - 1) # last column is norm distance to agent, which is added later per agent
             if not self.terminations[agent_name]:
                 agent = self.game.agents[agent_name]
                 if agent.team == 0:
@@ -211,11 +219,15 @@ class StarfighterEnv(ParallelEnv):
             state.append(agent_vector)
 
         for projectile in self.game.projectile_sprites:
-            projectile_vector = np.zeros(self.vector_width)
+            projectile_vector = np.zeros(self.vector_width - 1)
             projectile_vector[3] = 1
             projectile_vector[4] = projectile.rect.x / CONSTANTS.MAP_WIDTH
             projectile_vector[5] = projectile.rect.y / CONSTANTS.MAP_HEIGHT
             projectile_vector[6] = projectile.direction[0]
             projectile_vector[7] = projectile.direction[1]
+            state.append(projectile_vector)
         
+        while len(state) < self.max_objects:
+            state.append(np.zeros(self.vector_width - 1))
+
         return np.stack(state, axis=0)
